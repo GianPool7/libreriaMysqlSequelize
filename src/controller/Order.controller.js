@@ -12,45 +12,59 @@ export const getOrders=async(req,res)=>{
 }
 
 export const postOrder=async(req,res)=>{
-    const{idUsuario,idProducto,name,amount,price,total}=req.body
+    const{idUsuario,items,name,amount,price,total}=req.body
 
     try {
 
-        const user= await User.findByPk(idUsuario);
+        // Verificar que los productos existan y obtener precios
+        const productIds = items.map(item => item.idProducto);
+        const products = await Products.findAll({
+            where: { id: productIds }
+        });
 
-        if (!user) {
-            return res.status(404).json({ error: 'Usuario no encontrado' });
+        const productMap = products.reduce((map, product) => {
+            map[product.id] = product.price;
+            return map;
+        }, {});
+
+        // Verificar que todos los productos existan en la base de datos
+        const allProductsExist = items.every(item => productMap.hasOwnProperty(item.idProducto));
+        if (!allProductsExist) {
+            return res.status(400).json({ message: 'Algunos productos no existen' });
         }
 
-        // Validar que los productos existan y calcular el total
-        let precioTotal = 0;
-        const orderItems = [];
-        for (const productItem of Products) {
-            const product = await Products.findByPk(productItem.id);
-            if (!product) {
-                return res.status(404).json({ error: `Producto con ID ${productItem.productId} no encontrado` });
-            }
-            const price = product.precio;
-            const quantity = productItem.amount;
-            precioTotal += price * quantity;
+        // Calcular el precio total
+        let total = 0;
+        const orderItems = items.map(item => {
+            const price = productMap[item.idProducto];
+            const itemTotal = price * item.amount;
+            total += itemTotal;
+            return {
+                idProducto: item.idProducto,
+                name: item.name, // Asumiendo que 'name' es parte de 'item'
+                amount: item.amount,
+                price: price,
+                total: itemTotal
+            };
+        });
 
-            orderItems.push({
-                productId: product.id,
-                quantity,
-                price,
-            });
-        }
-
-        
-        const newOrders=await Orders.create({
+        // Crear el pedido
+        const newOrder = await Orders.create({
             idUsuario,
-            idProducto,
-            name,
-            amount,
-            price,
-            total:precioTotal
-        })
-        res.send(newOrders)
+            total,
+        });
+        
+        await Promise.all(orderItems.map(async (item) => {
+            await OrderItems.create({
+                orderId: newOrder.id,
+                productId: item.idProducto,
+                quantity: item.amount,
+                price: item.price,
+                total: item.total
+            });
+        }));
+
+        res.status(201).json({ order: newOrder, items: orderItems });
 
     } catch (error) {
         return res.status(500).json({message:error.message})    

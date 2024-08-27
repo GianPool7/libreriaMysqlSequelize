@@ -18,7 +18,7 @@ Postman (opcional, para probar la API)
 📦 Instalación
 1. Clona el repositorio:
 
-git clone https://github.com/tuusuario/nombre-repositorio.git
+git clone https://github.com/GianPool7/libreriaMysqlSequelize.git
 cd nombre-repositorio
 
 2. Instala las dependencias:
