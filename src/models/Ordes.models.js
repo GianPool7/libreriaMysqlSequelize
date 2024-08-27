@@ -25,6 +25,9 @@ export const Orders=sequelize.define('orders',{
     },
     total:{
         type:DataTypes.FLOAT
+    },
+    status:{
+        type:DataTypes.STRING
     }
 })
 
